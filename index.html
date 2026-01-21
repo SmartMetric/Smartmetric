@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SmartMetric Order Form</title>
+
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="portfolio.css" />
+</head>
+
+<body>
+
+<section id="form" class="order-form">
+  <div class="container">
+    <h2>Product Order Form</h2>
+
+    <p id="form-success" class="success-msg" style="display:none;">
+      Thank you. Your order has been received successfully.
+    </p>
+
+    <p id="form-error" class="error-msg" style="display:none; color:red;"></p>
+
+    <form id="orderForm" novalidate>
+
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" required />
+      </div>
+
+      <div class="form-group">
+        <label for="phone">Phone Number</label>
+        <div class="phone-wrapper">
+          <span class="country-code">+234</span>
+          <input
+            type="text"
+            id="phone"
+            inputmode="numeric"
+            maxlength="10"
+            placeholder="8012345678"
+            required
+          />
+        </div>
+        <small class="error-msg" id="phone-error"></small>
+      </div>
+
+      <div class="form-group">
+        <label for="alt-phone">Alternative Phone Number</label>
+        <div class="phone-wrapper">
+          <span class="country-code">+234</span>
+          <input
+            type="text"
+            id="alt-phone"
+            inputmode="numeric"
+            maxlength="10"
+            placeholder="8012345678"
+          />
+        </div>
+        <small class="error-msg" id="alt-phone-error"></small>
+      </div>
+
+      <div class="form-group">
+        <label for="product">Product</label>
+        <select id="product" required>
+          <option value="">-- Select Product --</option>
+          <option>Metric Capsule</option>
+          <option>Smart Capsule</option>
+          <option>Lytic Tablet</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="quantity">Quantity</label>
+        <input
+          type="number"
+          id="quantity"
+          min="1"
+          value="1"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="delivery">Type of Delivery</label>
+        <select id="delivery" required>
+          <option value="">-- Select Delivery Type --</option>
+          <option>Normal Delivery</option>
+          <option>Express Delivery</option>
+        </select>
+      </div>
+
+      <button type="submit" class="form-btn">Submit Order</button>
+    </form>
+  </div>
+</section>
+
+<script>
+  const form = document.getElementById("orderForm");
+  const phone = document.getElementById("phone");
+  const altPhone = document.getElementById("alt-phone");
+  const phoneError = document.getElementById("phone-error");
+  const altPhoneError = document.getElementById("alt-phone-error");
+  const successMsg = document.getElementById("form-success");
+  const errorMsg = document.getElementById("form-error");
+
+  const phoneRegex = /^[789][0-9]{9}$/;
+  const DUPLICATE_WINDOW_MINUTES = 15;
+
+  function numericOnly(input) {
+    input.addEventListener("input", () => {
+      input.value = input.value.replace(/[^0-9]/g, "");
+    });
+  }
+
+  numericOnly(phone);
+  numericOnly(altPhone);
+
+  function getOrderFingerprint(data) {
+    return [
+      data.fullName.toLowerCase().trim(),
+      data.phone,
+      data.altPhone || "",
+      data.product,
+      data.quantity
+    ].join("|");
+  }
+
+  function isDuplicateOrder(fingerprint) {
+    const stored = localStorage.getItem("lastOrder");
+    if (!stored) return false;
+
+    const parsed = JSON.parse(stored);
+    const elapsed =
+      (Date.now() - parsed.timestamp) / (1000 * 60);
+
+    if (elapsed > DUPLICATE_WINDOW_MINUTES) {
+      localStorage.removeItem("lastOrder");
+      return false;
+    }
+
+    return parsed.fingerprint === fingerprint;
+  }
+
+  function storeOrderFingerprint(fingerprint) {
+    localStorage.setItem(
+      "lastOrder",
+      JSON.stringify({
+        fingerprint,
+        timestamp: Date.now()
+      })
+    );
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    let valid = true;
+
+    if (!phoneRegex.test(phone.value)) {
+      phoneError.textContent =
+        "Enter 10 digits starting with 7, 8, or 9.";
+      phoneError.style.display = "block";
+      valid = false;
+    } else {
+      phoneError.style.display = "none";
+    }
+
+    if (altPhone.value && !phoneRegex.test(altPhone.value)) {
+      altPhoneError.textContent =
+        "Enter 10 digits starting with 7, 8, or 9.";
+      altPhoneError.style.display = "block";
+      valid = false;
+    } else {
+      altPhoneError.style.display = "none";
+    }
+
+    if (!valid) return;
+
+    const fullPhone = "+234" + phone.value;
+    const fullAltPhone = altPhone.value ? "+234" + altPhone.value : "";
+
+    const data = {
+      fullName: document.getElementById("name").value,
+      phone: fullPhone,
+      altPhone: fullAltPhone,
+      product: document.getElementById("product").value,
+      quantity: Number(document.getElementById("quantity").value),
+      deliveryType: document.getElementById("delivery").value
+    };
+
+    const fingerprint = getOrderFingerprint(data);
+
+    if (isDuplicateOrder(fingerprint)) {
+      errorMsg.textContent =
+        "This order was already submitted recently. Please wait 15 minutes before submitting the same order again.";
+      errorMsg.style.display = "block";
+      successMsg.style.display = "none";
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwMuSyk4uMxV7jltuTsVR4sQ-Zw-DDCZbhzntlZpted2Gj0voPyPkpPVGZSORNlrxq1/exec",
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+
+      if (!response.ok) throw new Error();
+
+      storeOrderFingerprint(fingerprint);
+
+      successMsg.style.display = "block";
+      errorMsg.style.display = "none";
+      form.reset();
+
+      setTimeout(() => {
+        successMsg.style.display = "none";
+      }, 5000);
+
+    } catch (error) {
+      errorMsg.textContent =
+        "There was an error submitting your order. Please try again.";
+      errorMsg.style.display = "block";
+      successMsg.style.display = "none";
+      console.error(error);
+    }
+  });
+</script>
+
+</body>
+</html>
