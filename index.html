@@ -37,7 +37,7 @@
             id="phone"
             inputmode="numeric"
             maxlength="10"
-            placeholder="8012345678"
+            placeholder="7012345678"
             required
           />
         </div>
@@ -69,15 +69,19 @@
         </select>
       </div>
 
+      <!-- Quantity dropdown only -->
       <div class="form-group">
         <label for="quantity">Quantity</label>
-        <input
-          type="number"
-          id="quantity"
-          min="1"
-          value="1"
-          required
-        />
+        <select id="quantity" required>
+          <option value="">-- Select Quantity --</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="10">10</option>
+          <option value="20">20</option>
+        </select>
       </div>
 
       <div class="form-group">
@@ -103,6 +107,7 @@
   const successMsg = document.getElementById("form-success");
   const errorMsg = document.getElementById("form-error");
 
+  // Enforce Nigerian numbers: first digit must be 7, 8, or 9
   const phoneRegex = /^[789][0-9]{9}$/;
   const DUPLICATE_WINDOW_MINUTES = 15;
 
@@ -158,7 +163,7 @@
 
     if (!phoneRegex.test(phone.value)) {
       phoneError.textContent =
-        "Enter 10 digits starting with 7, 8, or 9.";
+        "Phone number must start with 7, 8, or 9 and be 10 digits.";
       phoneError.style.display = "block";
       valid = false;
     } else {
@@ -167,7 +172,7 @@
 
     if (altPhone.value && !phoneRegex.test(altPhone.value)) {
       altPhoneError.textContent =
-        "Enter 10 digits starting with 7, 8, or 9.";
+        "Alternative phone must start with 7, 8, or 9.";
       altPhoneError.style.display = "block";
       valid = false;
     } else {
@@ -176,15 +181,16 @@
 
     if (!valid) return;
 
-    const fullPhone = "+234" + phone.value;
-    const fullAltPhone = altPhone.value ? "+234" + altPhone.value : "";
+    // Force string + prevent Sheets auto-format
+    const fullPhone = "'+234" + phone.value;
+    const fullAltPhone = altPhone.value ? "'+234" + altPhone.value : "";
 
     const data = {
       fullName: document.getElementById("name").value,
       phone: fullPhone,
       altPhone: fullAltPhone,
       product: document.getElementById("product").value,
-      quantity: Number(document.getElementById("quantity").value),
+      quantity: document.getElementById("quantity").value,
       deliveryType: document.getElementById("delivery").value
     };
 
@@ -192,7 +198,7 @@
 
     if (isDuplicateOrder(fingerprint)) {
       errorMsg.textContent =
-        "This order was already submitted recently. Please wait 15 minutes before submitting the same order again.";
+        "This order was already submitted recently. Please wait 15 minutes.";
       errorMsg.style.display = "block";
       successMsg.style.display = "none";
       return;
@@ -215,9 +221,7 @@
       errorMsg.style.display = "none";
       form.reset();
 
-      setTimeout(() => {
-        successMsg.style.display = "none";
-      }, 5000);
+      setTimeout(() => successMsg.style.display = "none", 5000);
 
     } catch (error) {
       errorMsg.textContent =
